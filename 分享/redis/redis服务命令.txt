@@ -1,0 +1,33 @@
+序号	命令	说明
+1	BGREWRITEAOF	异步重写仅追加的文件
+2	BGSAVE	将数据集异步保存到磁盘
+3	CLIENT KILL [ip:port] [ID client-id]	杀死或断开指定的客户端的连接
+4	CLIENT LIST	获取到服务器的客户端连接列表
+5	CLIENT GETNAME	获取当前连接的名称
+6	CLIENT PAUSE timeout	在指定时间内停止处理来自客户端的命令
+7	CLIENT SETNAME connection-name	设置当前连接名称
+8	CLUSTER SLOTS	获取群集插槽到节点映射的数组
+9	COMMAND	获取Redis命令详细信息的数组
+10	COMMAND COUNT	获取Redis命令的总数
+11	COMMAND GETKEYS	提取键给出一个完整的Redis的命令
+12	BGSAVE	将数据集异步保存到磁盘
+13	COMMAND INFO command-name [command-name …]	获取特定Redis命令详细信息的数组
+14	CONFIG GET parameter	获取配置参数的值
+15	CONFIG REWRITE	使用内存中配置来重写配置文件
+16	CONFIG SET parameter value	将配置参数设置为给定值
+17	CONFIG RESETSTAT	重置由INFO返回的统计信息
+18	DBSIZE	返回所选数据库中的键数量
+19	DEBUG OBJECT key	获取有关键的调试信息
+20	DEBUG SEGFAULT	使服务器崩溃
+21	FLUSHALL	从所有数据库中删除所有键
+22	FLUSHDB	删除当前数据库中的所有键
+23	INFO [section]	获取有关服务器的信息和统计信息
+24	LASTSAVE	获取上次成功保存到磁盘的UNIX时间戳
+25	MONITOR	监听服务器实时接收的所有请求
+26	ROLE	返回实例在复制上下文中的角色
+27	SAVE	将数据集同步保存到磁盘
+28	SHUTDOWN [NOSAVE] [SAVE]	将数据集同步保存到磁盘，然后关闭服务器
+29	SLAVEOF host port	使服务器成为另一个实例的从属，或将其提升作为主服务器
+30	SLOWLOG subcommand [argument]	管理Redis慢查询日志
+31	SYNC	用于复制的命令
+32	TIME	返回当前服务器的时间

@@ -1,0 +1,236 @@
+solrconfig.xml配置文件主要定义了SOLR的一些处理规则，包括索引数据的存放位置，更新，删除，查询的一些规则配置。
+下面将对solrconfig进行详细描述：
+1 <luceneMatchVersion>4.8</luceneMatchVersion> 表示solr底层使用的是lucene4.8
+2 <lib dir="../../../contrib/extraction/lib" regex=".*\.jar" /> 表示solr引用包的位置,当dir对应的目录不存在时候，会忽略此属性
+3 <dataDir>${solr.data.dir:}</dataDir> 定义了索引数据和日志文件的存放位置
+4 directoryFactory
+索引存储方案，共有以下存储方案：
+1)、solr.StandardDirectoryFactory 这是一个基于文件系统存储目录的工厂，它会试图选择最好的实现基于你当前的操作系统和Java虚拟机版本。
+2)、solr.SimpleFSDirectoryFactory 适用于小型应用程序，不支持大数据和多线程。
+3)、solr.NIOFSDirectoryFactory 适用于多线程环境，但是不适用在windows平台（很慢），是因为JVM还存在bug。
+4)、solr.MMapDirectoryFactory 这个是solr3.1到4.0版本在linux64位系统下默认的实现。它是通过使用虚拟内存和内核特性调用
+mmap去访问存储在磁盘中的索引文件。它允许lucene或solr直接访问I/O缓存。如果不需要近实时搜索功能，使用此工厂是个不错的方案。
+5)、solr.NRTCachingDirectoryFactory 此工厂设计目的是存储部分索引在内存中，从而加快了近实时搜索的速度。
+6)、solr.RAMDirectoryFactory 这是一个内存存储方案，不能持久化存储，在系统重启或服务器crash时数据会丢失。且不支持索引复制
+
+  <directoryFactory name="DirectoryFactory" 
+                    class="${solr.directoryFactory:solr.NRTCachingDirectoryFactory}">
+    <str name="solr.hdfs.home">${solr.hdfs.home:}</str>
+    <str name="solr.hdfs.confdir">${solr.hdfs.confdir:}</str>
+    <str name="solr.hdfs.blockcache.enabled">${solr.hdfs.blockcache.enabled:true}</str>
+    <str name="solr.hdfs.blockcache.global">${solr.hdfs.blockcache.global:true}</str>
+
+  </directoryFactory>
+5 <codecFactory class="solr.SchemaCodecFactory"/>
+<schemaFactory class="ClassicIndexSchemaFactory"/>
+编解码允许使用自定义的编解码器。例如：如果想启动per-field DocValues格式, 可以在solrconfig.xml里面设置SchemaCodecFactory：
+docValuesFormat="Lucene42": 这是默认设置，所有数据会被加载到堆内存中。
+docValuesFormat="Disk": 这是另外一个实现，将部分数据存储在磁盘上。
+docValuesFormat="SimpleText": 文本格式，非常慢，用于学习。
+
+6 <indexConfig>
+用于设置索引的低级别的属性
+1） <filter class="solr.LimitTokenCountFilterFactory" maxTokenCount="10000"/> //限制token最大长度
+2） <writeLockTimeout>1000</writeLockTimeout> //IndexWriter等待解锁的最长时间（毫秒）
+3） <maxIndexingThreads>12</maxIndexingThreads> //生成索引时使用的最大线程数.
+4） <useCompoundFile>false</useCompoundFile>
+//solr默认为false。如果为true,索引文件减少,检索性能降低,追求平衡。通过将很多 Lucene 内部文件整合到单一一个文件来减少使用中的文件的数量。这可有助于减少 Solr 使用的文件句柄数目，代价是降低了性能。除非是应用程序用完了文件句柄
+5） <ramBufferSizeMB>100</ramBufferSizeMB> //缓存
+6） <maxBufferedDocs>1000</maxBufferedDocs> //缓存。两个同时定义时命中较低的那个。在合并内存中文档和创建新段之前，定义所需索引的最小文档数。段是用来存储索引信息的 Lucene 文件。较大的值可使索引时间变快但会牺牲较多的内存。
+7）
+
+`<mergePolicy class="org.apache.lucene.index.TieredMergePolicy">
+        <int name="maxMergeAtOnce">20</int>
+        <int name="segmentsPerTier">20</int>
+        </mergePolicy>`
+//合并策略。
+8） <mergeFactor>10</mergeFactor> //合并因子,每次合并多少个segments。决定低水平的 Lucene 段被合并的频率。较小的值（最小为 2）使用的内存较少但导致的索引时间也更慢。较大的值可使索引时间变快但会牺牲较多的内存。
+9） <mergeScheduler class="org.apache.lucene.index.ConcurrentMergeScheduler"/> //合并调度器。
+10） <lockType>${solr.lock.type:native}</lockType> //锁。
+11） <unlockOnStartup>false</unlockOnStartup> //unlockOnStartup告知Solr 忽略在多线程环境中用来保护索引的锁定机制。在某些情况下，索引可能会由于不正确的关机或其他错误而一直处于锁定，这就妨碍了添加和更新。将其设置为 true 可以禁用启动锁定，进而允许进行添加和更新。
+12） <termIndexInterval>128</termIndexInterval> //Lucene loads terms into memory 间隔
+13） <reopenReaders>true</reopenReaders> //重新打开,替代先关闭-再打开。
+14） <deletionPolicy class="solr.SolrDeletionPolicy"> //提交删除策略,必须实现org.apache.lucene.index.IndexDeletionPolicy
+15） <str name="maxCommitsToKeep">1</str> //最多持有提交点的数量
+16） <str name="maxOptimizedCommitsToKeep">0</str> //最多持有优化提交点的数量
+17） <str name="maxCommitAge">2MINUTES</str> OR <str name="maxCommitAge">1DAY</str><br>　//一旦达到指定的时间删除所有的提交点　　
+18） <infoStream file="INFOSTREAM.txt">false</infoStream>//相当于把创建索引时的日志输出。
+<lockType>${solr.lock.type:native}</lockType>
+设置索引库的锁方式，主要有三种：
+⑴.single：适用于只读的索引库，即索引库是定死的，不会再更改
+⑵.native：使用本地操作系统的文件锁方式，不能用于多个solr服务共用同一个索引库。Solr3.6 及后期版本使用的默认锁机制。
+⑶.simple：使用简单的文件锁机制
+19) <maxMergeDocs> 2147483647 </maxMergeDocs> //控制可由 Solr 合并的 Document 的最大数。较小的值 (< 10,000) 最适合于具有大量更新的应用程序。
+20) <maxFieldLength> 10000 </maxFieldLength>
+//对于给定的 Document，控制可添加到 Field 的最大条目数，进而截断该文档。如果文档可能会很大，就需要增加这个数值。然而，若将这个值设置得过高会导致内存不足错误。
+（默认设置 <filter class="solr.LimitTokenCountFilterFactory" maxTokenCount="10000"/>）
+
+7 updateHandler节点
+<updateLog>
+<str name="dir">${solr.ulog.dir:}</str>
+</updateLog>
+设置索引库更新日志，默认路径为solr home下面的data/tlog。随着索引库的频繁更新，tlog文件会越来越大，所以建议提交索引时采用硬提交方式，即批量提交。
+
+  `<autoCommit>
+   <maxDocs>10000</maxDocs>
+   <maxTime>${solr.autoCommit.maxTime:5000}</maxTime>
+   <openSearcher>true</openSearcher>
+ </autoCommit>`
+自动硬提交方式:maxTime：设置多长时间提交一次maxDocs：设置达到多少文档提交一次openSearcher：文档提交后是否开启新的searcher，
+如果false，文档只是提交到index索引库，搜索结果中搜不到此次提交的文档；如果true，既提交到index索引库，也能在搜索结果中搜到此次提交的内容。
+
+ `<autoSoftCommit>`
+   `<maxTime>${solr.autoSoftCommit.maxTime:-1}</maxTime>` 
+ `</autoSoftCommit>` //软提交；
+ 1、把内存文件fsync到磁盘，但不创建index descriptor。也就是说原索引和现在的索引还互不感知，所以如果jvm崩溃，那这部分索引就没了。
+ 2、可以重新打开searcher，使得新的索引可以被查找到。
+
+ `<listener event="postCommit" class="solr.RunExecutableListener">`  
+    `<str name="exe">solr/bin/snapshooter</str>`   //exe--可执行的文件类型 
+    `<str name="dir">.</str>`//dir--可以用该目录做为当前的工作目录。默认为 "." 
+    `<bool name="wait">true</bool>`                //wait--调用线程要等到可执行的返回值 
+    `<arr name="args"> <str>arg1</str> <str>arg2</str> </arr>`   //args--传递给程序的参数 默认nothing  
+    `<arr name="env"> <str>MYVAR=val1</str> </arr>`              //env--环境变量的设置 默认nothing 
+ `</listener>`  
+ //一个postCommit的事件被触发当每一个提交之后，    
+
+ PS：自己的一些见解，solr提交索引的方式共有三种，通过solr api去提交的方式性能很差，不建议采用；个人建议还是采用autocommit的自动提交，虽然比较消耗资源，但是能最大限度保存意外造成的索引丢失的情况；
+ 更多信息，请查看https://lucidworks.com/blog/understanding-transaction-logs-softcommit-and-commit-in-sorlcloud/
+8 Query查询节点
+<maxBooleanClauses>1024</maxBooleanClauses>
+设置boolean 查询中，最大条件数。在范围搜索或者前缀搜索时，会产生大量的 boolean 条件，
+如果条件数达到这个数值时，将抛出异常，限制这个条件数，可以防止条件过多查询等待时间过长。
+缓存方法http://www.cnblogs.com/phinecos/archive/2012/05/24/2517018.html
+ `<!-- 过滤器缓存 --> 
+ <filterCache class="solr.FastLRUCache"
+             size="32768"
+             initialSize="32768"
+             autowarmCount="512"/>`
+ `<!-- 查询结果缓存 -->
+ <queryResultCache class="solr.FastLRUCache"
+             size="8192"
+             initialSize="8192"
+             autowarmCount="512"/>`
+ `<!-- 查询文档缓存 --> 
+ <documentCache class="solr.FastLRUCache"
+             size="4096"
+             initialSize="4096"
+             autowarmCount="0"/>`
+ `<!-- 自定义缓存 --> 
+ <cache name="perSegFilter"
+             class="solr.search.LRUCache"
+             size="4096"
+             initialSize="4096"
+             autowarmCount="4096"
+             regenerator="solr.NoOpRegenerator" />`
+ `<!-- 字段值缓存 --> 
+ <fieldValueCache class="solr.FastLRUCache"
+             size="512"
+             autowarmCount="128"
+             showItems="32" />`
+ 1）size：cache中可保存的最大的项数，默认是1024
+ 2）initialSize：cache初始化时的大小，默认是1024。
+ 3）autowarmCount：当切换SolrIndexSearcher时，可以对新生成的SolrIndexSearcher做autowarm（预热）处理。autowarmCount表示从旧的SolrIndexSearcher中取多少项来在新的SolrIndexSearcher中被重新生成，如何重新生成由CacheRegenerator实现。在当前的1.4版本的Solr中，这个autowarmCount只能取预热的项数，将来的4.0版本可以指定为已有cache项数的百分比，以便能更好的平衡autowarm的开销及效果。如果不指定该参数，则表示不做autowarm处理。
+     实现上，LRUCache直接使用LinkedHashMap来缓存数据，由initialSize来限定cache的大小，淘汰策略也是使用LinkedHashMap的内置的LRU方式，读写操作都是对map的全局锁，所以并发性效果方面稍差。
+`<enableLazyFieldLoading>true</enableLazyFieldLoading>`   //某些字段延时加载，以提高性能，例如内容较多的压缩文件
+ `<queryResultWindowSize>50</queryResultWindowSize>`       //Result Window Size 优化queryResultCache结果cache
+ `<queryResultMaxDocsCached>800</queryResultMaxDocsCached>`  //查询结果文档的最大缓存数
+
+ `<!-- 与请求相关的监听器 -->  
+ <!-- QuerySenderListener使用NamedList的数组和每个序列NamedList的执行一个本地查询请求。--> 
+ <listener event="newSearcher" class="solr.QuerySenderListener">
+ <arr name="queries">
+       </arr>
+ </listener>
+ <listener event="firstSearcher" class="solr.QuerySenderListener">
+    <arr name="queries">
+    <lst>
+      <str name="q">static firstSearcher warming in solrconfig.xml</str>
+    </lst>
+    </arr>
+ </listener>
+ <useColdSearcher>true</useColdSearcher>`   //使用云搜索 
+ `<maxWarmingSearchers>8</maxWarmingSearchers>`
+ //该参数用于设置最大的 searcher 数量，这些 searcher 实现预热好的，随时可以调用。如果超过这个数量，将会报错。在一个只读的索引库中，2个预热的 searcher 是相对合理的，如果是读写的索引库中，根据内存和cpu的大小可以给一个相对大一点的值。
+9 Request Dispatcher（请求转发器）
+<!-- Request Dispatcher 主要是介绍当有请求访问SolrCore时SolrDispatchFilter如何处理。 handleSelect是一个以前版本中遗留下来的属性,会影响请求的对应行为（比如/select?qt=XXX）。 当handleSelect="true"时导致SolrDispatchFilter将请求转发给qt指定的处理器（前提是/select已经注册）。 当handleSelect="false"时会直接访问/select,若/select未注册则为404。 -->
+<requestDispatcher handleSelect="false" >
+`<!-- Request Parsing：请求解析  
+ 这些设置说明Solr Requests如何被解析,以及对ContentStreams有什么限制。  
+ enableRemoteStreaming - 是否允许使用stream.file和stream.url参数来指定远程streams。  
+ multipartUploadLimitInKB - 指定多文件上传时Solr允许的最大的size,设置了通过多部分（multi-part）的HTTP POST请求提交的文档大小的上限，单位是Kb。这个值指定为1024的倍数来确定Bytes的大小
+ formdataUploadLimitInKB - 表单通过POST请求发送的最大size,设置了一个用Kb表示的限制，用以限制HTTP POST请求中提交的表单数据的大小，这个大小可以用来传递请求的参数但并不适合（写入）URL中
+ addHttpRequestToContext - 用来声明原始的HttpServletRequest对象应该被包括在使用httpRequest的SolrQueryRequest的上下文集合（context map）中。
+ 这个HttpServletRequest不会用于任何Solr的组成部分，但在开发自定义的插件是会很有用
+ -->` 
+ `<requestParsers enableRemoteStreaming="true" 
+                 multipartUploadLimitInKB="2048000"
+                 formdataUploadLimitInKB="20480"
+                 addHttpRequestToContext="false"/>`
+
+ `<httpCaching>`元素控制了HTTP缓存控制头（HTTP cache control headers）。不要将这些设置和Solr内部的缓存配置混淆。这个元素控制了W3C HTTP规格定义的HTTP响应的缓存过程。这个元素允许三个属性和一个下级元素。
+ `<httpCaching>`元素的属性决定了是否允许对一个GET请求进行304响应，如果可以，它应该是什么响应类别（sort）当一个HTTP用户程序生成一个GET请求，如果资源从上一次被取得后还没有被修改，那么它可以可选择地指定一个可接受的304响应。
+ never304
+ 如果将这个值设置为true，那么即使请求的资源还没有被修改，一个GET请求也永远不会得到一个304响应。如果这个属性被设置为true，那么接下来的两个属性会被忽略。将这个属性设置为true对于开发来说是方便的，因为当通过支持缓存头的web浏览器或者其他用户修补Solr的响应时，304响应可能会使人混淆。
+ lastModFrom 这个属性可以设置为openTime（默认值）或者dirLastMod。openTime指示了最后更改时间，相对于客户发送的If-Modified-Since头，
+ 它应该在搜索器开始的时候计算。如果当索引在硬盘上更新时你需要精确同步，那么使用dirLastMod。
+
+ etagSeed
+ 这个属性的值被作为ETag头的值。改变这个值可以有助于强制用户重新取得内容，即使索引没有被改变。例如，当你修改了配置的时候。
+
+ `<httpCaching never304="false"
+ lastModFrom="openTime"
+ etagSeed="Solr">
+ <cacheControl>max-age=30, public</cacheControl>
+ </httpCaching>`
+10 requestHandler（请求处理器）
+提供了类似webservice的功能，可以通过http请求solr搜索
+Configuration
+<requestHandler name="/select" class="solr.SearchHandler"> <lst name="defaults"> <str name="echoParams">explicit</str> <int name="rows">10</int> //显示数量- <str name="df">text</str> //默认搜索字段 </lst>
+
+  `<requestHandler name="/query" class="solr.SearchHandler">
+   <lst name="defaults">
+     <str name="echoParams">explicit</str>
+     <str name="wt">json</str>     //显示格式
+     <str name="indent">true</str>
+     <str name="df">text</str>
+   </lst>
+  </requestHandler>`
+
+   这些参数定义了需要返回多少结果（定义值为10），通过参数df定义了搜索的域默认为“text”域。echoParams参数定义了查询中的在调试信息返回的客户端请求中的参数。另外还要注意在列表中这些默认值定义方法的 变化：当参数是String，integer或其他类型时，定义类型是不同的。
+   所有这些在搜索部分描述的参数可以在任何SearchHandlers中定义为默认值（这些参数的细节信息请参考搜索部分）
+   除了这些默认值，还有一些选择可用于SearchHandler，包括了下面的这些内容：
+   appends：这个设置允许在用户查询中添加参数的定义。这些参数可能是过滤查询，或者其他可以被加入每一个查询的查询规则。在Solr中没有机制允许客户端覆盖这些添加，所以你应当确定你总是需要在查询中加入这些参数。
+    `<lst name="appends">
+     <str name="fq">inStock:true</str>
+    </lst>`
+
+   在这个例子中，过滤查询“inStock:true”会添加到每一个查询上。
+
+   Invariants：这个设置允许定义不会被客户端覆盖的参数。在invariants部分定义的值总是会被使用，而不考虑用户或客户端默认的或添加的值。
+
+     `<lst name="invariants">
+     <str name="facet.field">cat</str>
+     <str name="facet.field">manu_exact</str>
+     <str name="facet.query">price:[* TO 500]</str>
+     <str name="facet.query">price:[500 TO *]</str>
+     </lst>`
+
+   在这个例子中，facet域被定义，这个定义会限制Solr返回的facets。如果客户端请求facets，那么他们只会看到和这个配置的相同的facets。
+
+   在request handler最后部分，是组件（component）的定义，它定义了可以被用于一个request
+   Handler的搜索组件的列表。它们仅在request handler中注册。对搜索组件的更进一步的讨论在搜索组件部分。搜索组件元素只能被用于SearchHandler。
+   Handler Resolution
+
+   客户端可以通过带有“gt”这个参数的“/select/ url”请求，也可以通过在solrconfig.xml配置的方式来决定要访问的SolrRequestHandler。
+
+   Solr是通过下面的步骤去选择一个handler并处理请求的.....
+   寻找name属性跟请求中的qt参数匹配的handler
+   寻找在配置文件中“default=true”的handler
+   寻找在配置文件中name属性为“standad”的handler
+   使用StandardRequestHandler的默认实例
+
+   如果你的配置文件solrconfig.xml 包含有name属性为"/select", "/update", 或"/admin"，那么你的程序将不会沿用标准的请求处理过程，而将会是你自己自定义的逻辑。
+   扩展自己的Handler
+   实现一个SolrRequestHandler 最简单的方法是去扩展 RequestHandlerBase 类。
+

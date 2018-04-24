@@ -1,0 +1,72 @@
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+  -->
+
+<dataConfig>
+	<dataSource name="solrDB" type="JdbcDataSource" driver="com.mysql.jdbc.Driver" url="jdbc:mysql://10.202.7.24:3306/sasp?useUnicode=true&amp;characterEncoding=UTF8&amp;autoReconnect=true" user="sasp" password="sf123456" batchSize="-1" />
+  <document>
+    <!--entity dataSource="solrDB" pk="id" name="archives" 
+    	query="SELECT id,customer_name,customer_address,contacts,phone,dept_code,people_follow,business_account,SETTLE_ACCOUNT , group_corporation_no,customer_profile_status,CASE WHEN modified_tm > create_tm THEN modified_tm ELSE create_tm END AS create_tm    FROM sasp_archives"
+    	deltaImportQuery="SELECT id,customer_name,customer_address,contacts,phone,dept_code,people_follow,business_account,SETTLE_ACCOUNT , group_corporation_no,customer_profile_status ,CASE WHEN modified_tm > create_tm THEN modified_tm ELSE create_tm END AS create_tm   FROM sasp_archives where id='${dih.delta.id}'"   
+			deltaQuery="SELECT id FROM sasp_archives WHERE create_tm> '${dataimporter.last_index_time}' OR modified_tm> '${dataimporter.last_index_time}'"
+		-->
+    
+      
+    
+    <entity dataSource="solrDB" pk="id" name="opportunities"
+    	query="SELECT id,opportunities_status,expected_monthly_income,expected_monthly_volume,create_tm,people_follow,opportunities_advance_stage,customer_profile_number,opportunities_top_ten,CASE WHEN modified_tm > create_tm THEN modified_tm ELSE create_tm END  sort_tm FROM sasp_opportunities"
+    	deltaImportQuery="SELECT id,opportunities_types,opportunities_status,expected_monthly_income,expected_monthly_volume,create_tm,people_follow,opportunities_advance_stage,customer_profile_number,opportunities_top_ten,CASE WHEN modified_tm > create_tm THEN modified_tm ELSE create_tm END  sort_tm FROM sasp_opportunities where id='${dih.delta.id}'"
+    	deltaQuery="SELECT id FROM sasp_opportunities WHERE DATE_ADD(create_tm,INTERVAL 2 MINUTE)> '${dataimporter.last_index_time}' OR  DATE_ADD(modified_tm,INTERVAL 2 MINUTE)> '${dataimporter.last_index_time}'"
+    	>
+    	<field column="id" name="id"/>
+		<field column="opportunities_types" name="opportunitiesTypes"/>
+    	<field column="opportunities_status" name="opportunitiesStatus"/>
+    	<field column="expected_monthly_income" name="expectedMonthlyIncome"/>
+    	<field column="expected_monthly_volume" name="expectedMonthlyVolume"/>
+    	<field column="create_tm" name="createTm"/>
+    	<field column="people_follow" name="peopleFollow"/>
+    	<field column="opportunities_advance_stage" name="opportunitiesAdvanceStage"/>
+    	<field column="customer_profile_number" name="customerProfileNumber"/>
+    	<field column="opportunities_top_ten" name="oppTopTen"/>
+    	<field column="sort_tm" name="sortTm"/>
+    	<entity name="archive"
+    		query="SELECT customer_name,dept_code,customer_management_ownership,is_warehouse FROM sasp_archives WHERE id='${opportunities.customer_profile_number}'">
+    		<field column="customer_name" name="customerName"/>
+    		<field column="dept_code" name="deptCode"/>
+    		<field column="customer_management_ownership" name="customerManagementOwnership"/>
+    		<field column="is_warehouse" name="isWarehouse"/>
+    		
+    		<entity name="department"  pk="DEPT_ID"
+					query="SELECT DEPT_ID,DEPT_NAME,DEPT_CODE,PARENT_DEPT_CODE,DIVISION_CODE,AREA_CODE,HQ_CODE FROM sasp_tm_department t WHERE DEPT_CODE='${archive.dept_code}' ORDER BY DELETE_FLG LIMIT 1"	
+					deltaQuery="SELECT DEPT_ID FROM sasp_tm_department WHERE CREATED_TM-2> '${dataimporter.last_index_time}' OR MODIFIED_TM-2> '${dataimporter.last_index_time}'"
+					deltaImportQuery="SELECT DEPT_ID,DEPT_NAME,DEPT_CODE,PARENT_DEPT_CODE,DIVISION_CODE,AREA_CODE,HQ_CODE FROM sasp_tm_department t WHERE DEPT_ID=${department.DEPT_ID}"
+					>	
+					<field column="DEPT_ID" name="departmentsDeptId"/>
+						
+					<field column="DEPT_NAME" name="departmentsDeptName"/>
+					<field column="DEPT_CODE" name="departmentsDeptCode"/>
+					<field column="DIVISION_CODE" name="departmentsDivisionCode"/>
+					<field column="AREA_CODE" name="departmentsAreaCode"/>
+					<field column="HQ_CODE" name="departmentsHqCode"/>
+					<field column="PARENT_DEPT_CODE" name="departmentsParentDeptCode"/>
+				</entity>
+    	</entity>
+    	<entity name="user" query="SELECT EMP_NAME FROM sasp_tm_billing_employee WHERE VALID_FLG=1 AND EMP_CODE='${opportunities.people_follow}'">
+    		<field column="EMP_NAME" name="empName"/>
+    	</entity>	
+    </entity>
+  </document>
+</dataConfig>
